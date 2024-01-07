@@ -1,0 +1,21 @@
+﻿  main.cpp
+C:\Users\andrimation\Documents\Console3d\olcConsoleGameEngineGL.h(1229,13): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+  (compiling source file 'main.cpp')
+  
+C:\Users\andrimation\Documents\Console3d\olcConsoleGameEngineGL.h(1796,32): warning C4267: 'return': conversion from 'size_t' to 'unsigned int', possible loss of data
+  (compiling source file 'main.cpp')
+  
+C:\Users\andrimation\Documents\Console3d\olcConsoleGameEngineGL.h(1893,5): warning C4312: 'type cast': conversion from 'DWORD' to 'olcConsoleGameEngine *' of greater size
+  (compiling source file 'main.cpp')
+  
+C:\Users\andrimation\Documents\Console3d\main.cpp(45,17): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
+C:\Users\andrimation\Documents\Console3d\main.cpp(49,17): warning C4244: '-=': conversion from 'double' to 'float', possible loss of data
+C:\Users\andrimation\Documents\Console3d\main.cpp(54,17): warning C4244: '+=': conversion from 'double' to 'float', possible loss of data
+C:\Users\andrimation\Documents\Console3d\main.cpp(58,17): warning C4244: '-=': conversion from 'double' to 'float', possible loss of data
+C:\Users\andrimation\Documents\Console3d\main.cpp(126,24): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\andrimation\Documents\Console3d\main.cpp(125,66): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\andrimation\Documents\Console3d\main.cpp(125,45): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\andrimation\Documents\Console3d\main.cpp(125,24): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\andrimation\Documents\Console3d\main.cpp(124,57): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+C:\Users\andrimation\Documents\Console3d\main.cpp(124,36): warning C4244: 'argument': conversion from 'float' to 'int', possible loss of data
+  Console3d.vcxproj -> C:\Users\andrimation\Documents\Console3d\x64\Debug\Console3d.exe
