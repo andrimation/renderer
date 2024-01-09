@@ -75,14 +75,16 @@ struct vec3d
 struct triangle
 {
 	vec3d points[3];
+	vec3d middlePoint;
 
 	WCHAR colorChar;
 	WORD colorAtrr;
 
 	// ¿eby posortowaæ?
-	vec3d TriangleMiddle()
+	vec3d ComputeTriangleMiddle()
 	{
-		vec3d nevVector = (points[0] + points[1] + points[2]) / 3;
+		vec3d newVector = (points[0] + points[1] + points[2]) / 3;
+		return newVector;
 	}
 };
 

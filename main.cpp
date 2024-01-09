@@ -2,6 +2,7 @@
 #include "olcConsoleGameEngineGL.h"
 #include <fstream>
 #include <strstream>
+#include <algorithm>
 #include "3dFunctions.h"
 
 class consoleEngine : public olcConsoleGameEngine
@@ -9,7 +10,7 @@ class consoleEngine : public olcConsoleGameEngine
 public:
 // Data
 
-	std::vector<string> meshesToLoad = { "VideoShip.obj" };
+	std::vector<string> meshesToLoad = { "VideoShip.obj","plane.obj"};
 	std::vector<mesh> sceneMeshes;
 	mat4x4 projectionMatrix;
 	camera camView;
@@ -40,30 +41,34 @@ public:
 		mat4x4 matXRot;
 		mat4x4 matYRot;
 
-		if (GetKey(VK_UP).bHeld)
-		{
-			timeX += 5.0 * FElapsedTime;
-		}
-		if (GetKey(VK_DOWN).bHeld)
-		{
-			timeX -= 5.0 * FElapsedTime;
-		}
-
-		if (GetKey(VK_RIGHT).bHeld)
-		{
-			timeY += 5.0 * FElapsedTime;
-		}
-		if (GetKey(VK_LEFT).bHeld)
-		{
-			timeY -= 5.0 * FElapsedTime;
-		}
+		
 
 		createRotationZMatrix(matZRot, timeZ, 1);
 		matXRot = createRotationXMatrix(timeX);
 		matYRot = createRotationYMatrix(timeY);
 
-		for (mesh meshToProject : sceneMeshes)
+
+		for (int i = 0; i < sceneMeshes.size(); i++)
 		{
+			mesh& meshToProject = sceneMeshes[i];
+
+			if (GetKey(VK_UP).bHeld)
+			{
+				timeX += 5.0 * FElapsedTime;
+			}
+			if (GetKey(VK_DOWN).bHeld)
+			{
+				timeX -= 5.0 * FElapsedTime;
+			}
+
+			if (GetKey(VK_RIGHT).bHeld)
+			{
+				timeY += 5.0 * FElapsedTime;
+			}
+			if (GetKey(VK_LEFT).bHeld)
+			{
+				timeY -= 5.0 * FElapsedTime;
+			}
 
 			std::vector<triangle> TrianglesToSort;
 					
@@ -72,9 +77,16 @@ public:
 				
 				triangle TriRotZ,TriRotX,TriRotY,TriOffset,TriProj;
 
-				MultiplyMatrixTriangle(matZRot, tri, TriRotZ);
-				MultiplyMatrixTriangle(matXRot, TriRotZ, TriRotX);
-				MultiplyMatrixTriangle(matYRot, TriRotX, TriRotY);
+				if (i == 0)
+				{
+					MultiplyMatrixTriangle(matZRot, tri, TriRotZ);
+					MultiplyMatrixTriangle(matXRot, TriRotZ, TriRotX);
+					MultiplyMatrixTriangle(matYRot, TriRotX, TriRotY);
+				}
+				else
+				{
+					TriRotY = tri;
+				}
 
 				TriOffset = TriRotY;
 				TriOffset.points[0].z = TriRotY.points[0].z + 10;
@@ -93,7 +105,7 @@ public:
 
 				float cameraTriangleDotProduct = vec3d::VectorDotProduct(camTriangleVectorNormalized, triangleNormalNormalized);
 				
-				if (cameraTriangleDotProduct < 0.0f)
+				if (cameraTriangleDotProduct < 0.0f )
 				{
 					vec3d lightVectorNormalized = vec3d::VectorNormalize(light.dir);
 					float triLightDotProduct = vec3d::VectorDotProduct(triangleNormalNormalized, lightVectorNormalized);
@@ -119,14 +131,27 @@ public:
 					TriProj.colorChar = color.Char.UnicodeChar;
 					TriProj.colorAtrr = color.Attributes;
 
-					TrianglesToSort.push_back(TriProj);
+					TriProj.middlePoint = TriProj.ComputeTriangleMiddle();
 
-					FillTriangle(TriProj.points[0].x, TriProj.points[0].y,
-						TriProj.points[1].x, TriProj.points[1].y, TriProj.points[2].x,
-						TriProj.points[2].y,color.Char.UnicodeChar,color.Attributes);
+					TrianglesToSort.push_back(TriProj);				
 				}
 			}
-			// Posortowaæ listê trójk¹tów wed³ug odleg³oœci. 
+			// Posortowaæ listê trójk¹tów wed³ug odleg³oœci.
+			std::sort(TrianglesToSort.begin(), TrianglesToSort.end(), [&](triangle a, triangle b) {
+				vec3d vec1 = a.middlePoint - camView.position;
+				vec3d vec2 = b.middlePoint - camView.position;
+				return a.middlePoint.z < b.middlePoint.z;
+				});
+
+			for (triangle& triToDraw : TrianglesToSort)
+			{
+				FillTriangle(triToDraw.points[0].x, triToDraw.points[0].y,
+					triToDraw.points[1].x, triToDraw.points[1].y, triToDraw.points[2].x,
+					triToDraw.points[2].y, triToDraw.colorChar, triToDraw.colorAtrr);
+				DrawTriangle(triToDraw.points[0].x, triToDraw.points[0].y,
+					triToDraw.points[1].x, triToDraw.points[1].y, triToDraw.points[2].x,
+					triToDraw.points[2].y, PIXEL_SOLID,FG_BLACK);
+			}
 		}
 
 		return true;
@@ -138,7 +163,7 @@ int main()
 
 	consoleEngine engineObj;
 
-	if (engineObj.ConstructConsole(256, 240, 4, 4))
+	if (engineObj.ConstructConsole(512, 512, 4, 4))
 	{
 		engineObj.Start();
 	}
