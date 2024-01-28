@@ -101,9 +101,9 @@ public:
 				}
 
 				TriOffset = TriRotY;
-				TriOffset.points[0].z = TriRotY.points[0].z + 10;
-				TriOffset.points[1].z = TriRotY.points[1].z + 10;
-				TriOffset.points[2].z = TriRotY.points[2].z + 10;
+				TriOffset.points[0].z = TriRotY.points[0].z + 6;
+				TriOffset.points[1].z = TriRotY.points[1].z + 6;
+				TriOffset.points[2].z = TriRotY.points[2].z + 6;
 
 				// Camera - triangle dot product
 				vec3d triangleLine1 = TriOffset.points[1] - TriOffset.points[0];
@@ -175,7 +175,6 @@ public:
 					{
 						TrianglesToSort.push_back(TriProj);
 						
-						//std::cout << "Triangle: " << TriProj.points[0] << "  " << TriProj.points[1] << "  " << TriProj.points[2];
 					}
 					else
 					{
@@ -199,11 +198,11 @@ public:
 				return a.middlePoint.z < b.middlePoint.z;
 				});
 
-			/*std::sort(TrianglesToRayTrace.begin(), TrianglesToRayTrace.end(), [&](triangle a, triangle b) {
+			std::sort(TrianglesToRayTrace.begin(), TrianglesToRayTrace.end(), [&](triangle a, triangle b) {
 				vec3d vec1 = a.middlePoint - camView.position;
 				vec3d vec2 = b.middlePoint - camView.position;
 				return a.middlePoint.z < b.middlePoint.z;
-				});*/
+				});
 
 			for (triangle& triToDraw : TrianglesToSort)
 			{

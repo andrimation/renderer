@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <cstdlib>
 #include <fstream>
 
 struct vec3d
@@ -106,6 +107,11 @@ struct vec3d
 		return *this;
 	}
 
+	bool operator == (const vec3d& other)
+	{
+		return (this->x == other.x && this->y == other.y && this->z == other.z);
+	}
+
 	static float VectorDotProduct(vec3d& vec1, vec3d& vec2)
 	{
 		return vec1.x * vec2.x + vec1.y * vec2.y + vec1.z * vec2.z;
@@ -141,12 +147,12 @@ struct vec3d
 		return newVector;
 	}
 
-};
+	static vec3d random()
+	{
 
-inline static std::ostream& operator << (std::ostream& out, const vec3d v)
-{
-	return out << v.x << " " << v.y << " " << v.z << "\n";
-}
+	};
+
+};
 
 struct triangle
 {
@@ -306,6 +312,22 @@ mat4x4 createRotationYMatrix(float angle)
 	return matrix;
 }
 
+// Utilities
+inline static std::ostream& operator << (std::ostream& out, const vec3d v)
+{
+	return out << v.x << " " << v.y << " " << v.z << "\n";
+}
+
+inline float random()
+{
+	return rand() / (RAND_MAX + 0.1);
+}
+
+inline float random(float min, float max)
+{
+	return min + (max - min) * random();
+}
+
 // Funkcja powi¹zana z console engine
 CHAR_INFO GetColour(float lum)
 {
@@ -378,8 +400,8 @@ public:
 	int imageHeight;
 	camera cam;
 
-	float viewportHeight = 0.01f;
-	float viewportWidth  = 0.01f; 
+	float viewportHeight = 0.005f;
+	float viewportWidth  = 0.005f; 
 
 	vec3d viewportU = { viewportWidth,0.0,0.0 };
 	vec3d viewportV = { 0.0,viewportHeight,0.0 };
@@ -392,32 +414,72 @@ public:
 	vec3d viewportTopLeft = cam.position + focalLenght - (viewportU / 2) - (viewportV / 2);
 	vec3d pixel00 = viewportTopLeft + pixelDeltaU / 2 + pixelDeltaV / 2;
 
+	int antyAlisingSamples = 5;
+
 	void RenderToFile(std::string fileName, std::vector<triangle> trianglesToCheck)
 	{
 		std::ofstream renderResultFile(fileName, std::ios::binary);
-
 		renderResultFile << "P3\n" << imageWidth << " " << imageHeight << "\n255\n";
 
 		for (int j = -imageHeight*0.5; j < imageHeight*0.5; j++)
 		{
 			for (int i = -imageWidth*0.5; i < imageWidth*0.5; i++)
 			{	
+				vec3d pixelCol{ 0.0,0.0,0.0 };
 				vec3d nextPixel = pixel00 + (pixelDeltaU * i) + (pixelDeltaV * j);
-				auto rayDir = nextPixel - cam.position;
-
+				vec3d rayDir = (nextPixel - cam.position);
 				ray r(cam.position, rayDir);
 
-				vec3d pixelCol = rayColor(r);
+				int check = 0;
 
-				for (triangle& triToTest : trianglesToCheck)
-				{								
-					if (rayHitTriangle(triToTest, r))
+				std::vector<vec3d> colorsToBlend; 
+
+				for (int sample = 0; sample < antyAlisingSamples; sample++)
+				{
+					vec3d random = addRandomness();
+					rayDir = (nextPixel - cam.position) + random;
+					r.dir = rayDir;
+
+					// Zrobiæ vector kolorów. i ka¿dy trafia po 1 razie. Ale bez sensu, bo np tam gdzie jest pe³ny obszar "trafieñ" to i tak mi bêdzie
+					// dodawaæ kolor t³a, 
+					// Ok zrobiæ vector. dla ka¿dego raya dodajemy kolor który trafi, ale dla raya, nie dla trójk¹ta. 					
+					for (triangle& triToTest : trianglesToCheck)
 					{
-						pixelCol = vec3d{ 0.0,0.0,0.0 };
-						break;
-					}					
-				}			
-				writeColor(renderResultFile, pixelCol);			
+						if (rayHitTriangle(triToTest, r))
+						{
+							vec3d hitColor = { 1.0,1.0,1.0 };
+							colorsToBlend.push_back(hitColor);
+							break;
+						}
+					}
+				}
+
+				// Dlaczego wychodzi szary w œrodku a czarny na bokach ? 
+
+				//Sprawdzam w wektorze kolorów ile by³o trafieñ i ró¿nicê uzupe³niam kolorem t³a 
+				// ( im mniej trafieñ tym pi*oko minejsz¹ czêœæ zajmuje trójk¹t w pikselu )
+				int trianglesHits = colorsToBlend.size();
+				std::cout << trianglesHits << "\n";
+				// Uzupe³niam ró¿nicê kolorem t³a
+				r.dir = (nextPixel - cam.position);
+				vec3d backgroundColor = computeRayColor(r);
+				
+				// B³¹d jest na pewno tu ?
+				for (int missedRays = 0; missedRays < antyAlisingSamples-trianglesHits; missedRays++)
+				{
+					colorsToBlend.push_back(backgroundColor);
+				}
+
+				vec3d combinedColors{ 0.0,0.0,0.0 };
+				for (vec3d& colorToAdd : colorsToBlend)
+				{
+					combinedColors += colorToAdd;
+				}
+				
+				pixelCol = combinedColors / colorsToBlend.size();
+
+				writeColor(renderResultFile, pixelCol);		
+				colorsToBlend.empty();
 			}
 		}
 
@@ -432,8 +494,24 @@ public:
 			<< static_cast<int>(255.999 * pixelColor.z) << "\n";
 	}
 
-	vec3d rayColor(const ray& r)
-	{	
+	float clamp(float val, float min, float max)
+	{
+		if (val < min)
+		{
+			return min;
+		}
+		else if (val > max)
+		{
+			return max;
+		}
+		else
+		{
+			return val;
+		}
+	}
+
+	vec3d computeRayColor( ray& r)
+	{		
 		// Gradient t³a
 		vec3d direction = r.dir;
 		vec3d normalized_ray = vec3d::VectorNormalize(direction);
@@ -442,7 +520,16 @@ public:
 		vec3d colorA{ 1.0,1.0,1.0 };
 		vec3d colorB{ 0.5,0.7,1.0 };
 
-		return colorA*(1.0-a) + colorB*a;
+		return colorA * (1.0 - a) + colorB * a;
+		//return vec3d{ 1.0,1.0,1.0 };	
+	}
+
+	vec3d addRandomness()
+	{
+		float x = - 0.5 + random();
+		float y = - 0.5 + random();
+
+		return (pixelDeltaU * x) + (pixelDeltaV * y);
 	}
 
 	bool rayHitTriangle(triangle& triToTest, ray& r)
@@ -517,6 +604,8 @@ public:
 
 		return true;
 	}
+
+	vec3d smoothPixel(int i, int j, vec3d) {};
 
 };
 
