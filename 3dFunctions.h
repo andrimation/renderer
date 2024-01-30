@@ -507,9 +507,9 @@ public:
 					rayDir = (nextPixel - cam.position) + random;
 					r.dir = rayDir;
 
-					// Zrobiæ vector kolorów. i ka¿dy trafia po 1 razie. Ale bez sensu, bo np tam gdzie jest pe³ny obszar "trafieñ" to i tak mi bêdzie
-					// dodawaæ kolor t³a, 
-					// Ok zrobiæ vector. dla ka¿dego raya dodajemy kolor który trafi, ale dla raya, nie dla trójk¹ta. 					
+					// Do vectora bêdê dodawa³ kolory ka¿dego promienia który trafi³. Dla promieni nie trafionych dodajê po prostu kolor t³a
+					//  
+					// 					
 					for (triangle& triToTest : trianglesToCheck)
 					{
 						if (rayHitTriangle(triToTest, r))
@@ -518,6 +518,7 @@ public:
 							colorsToBlend.push_back(hitColor);
 							break;
 						}
+
 					}
 				}
 				//Sprawdzam w wektorze kolorów ile by³o trafieñ i ró¿nicê uzupe³niam kolorem t³a 

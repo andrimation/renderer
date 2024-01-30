@@ -143,8 +143,7 @@ public:
 				TriProj.points[2].x *= (float)ScreenWidth() * 0.5f;
 				TriProj.points[2].y *= (float)ScreenHeight() * 0.5f;
 
-				
-
+			
 				// Ok czyli wiem ¿e problem jest gdzieœ tu. Jeœli dajê do renderowania TriOffset - a wiêc bez matrycy projekcji,
 				// to wtedy renderuje siê poprawnie
 				
@@ -248,13 +247,12 @@ public:
 
 		// Z³e obliczenia numerów dla w¹tków ! pamiêtaæ ¿e muszê liczyæ od numerów ujemnych po³owy rozmiaru ekranu ! !!
 		// podzieliæ w ogóle sobie thready na poziome i wyjebane
-
 		for (int i = 0; i < numOfThreads; i++)
 		{
 			int aU = iterationPixelsNums[i];
 			int bU = iterationPixelsNums[i + 1];
 
-			std::cout <<"U: " << aU << "  " << bU << " \n";
+			std::cout <<"ThreadU range: " << aU << "  " << bU << " \n";
 			std::thread thread_obj(&RayTracer::RenderChunkInThread, &renderer, trianglesToCheck, aU, bU,threadID);
 			RenderThreads.push_back(move(thread_obj));
 			threadID++;
