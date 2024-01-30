@@ -23,6 +23,10 @@ public:
 	float timeY = 0;
 
 	RayTracer renderer{ camView };
+
+	int numOfThreads = 8;  // 4 albo 16 :P
+	std::vector<thread> RenderThreads;
+	
 	
 // Functions
 	consoleEngine()
@@ -213,15 +217,56 @@ public:
 					triToDraw.points[1].x, triToDraw.points[1].y, triToDraw.points[2].x,
 					triToDraw.points[2].y, PIXEL_SOLID,FG_WHITE);*/
 			}
-
-			if (ifRenderImage)
-			{			
-				renderer.RenderToFile("plik.ppm", TrianglesToRayTrace);
-				ifRenderImage = false;
-			}
+		}
+		if (ifRenderImage )
+		{
+			//renderer.RenderThreadToArray(TrianglesToRayTrace);
+			//renderer.RenderToFile("plik.ppm", TrianglesToRayTrace);
+			RenderInThreads(TrianglesToRayTrace,renderer.ThreadsResults);
+			renderer.SaveRenderResultToFile("plik.ppm");
+			ifRenderImage = false;
 		}
 
 		return true;
+	}
+
+	void RenderInThreads(std::vector<triangle> trianglesToCheck,std::vector<std::vector<vec3d>>& ThreadsResults)
+	{
+		// Tu jest b³ad w obliczeniu bo bêdê renderowa³ po skosie !
+		ThreadsResults.resize(numOfThreads);
+		int threadID = 0;
+		int threadAddNum = (int)ScreenHeight() / numOfThreads;
+		std::vector<int> iterationPixelsNums;
+
+		int addNum = -(int)ScreenHeight()/2;
+		iterationPixelsNums.push_back(addNum);
+		for (int i = 0; i < numOfThreads; i++)
+		{
+			addNum += threadAddNum;
+			iterationPixelsNums.push_back(addNum);
+		}
+
+		// Z³e obliczenia numerów dla w¹tków ! pamiêtaæ ¿e muszê liczyæ od numerów ujemnych po³owy rozmiaru ekranu ! !!
+		// podzieliæ w ogóle sobie thready na poziome i wyjebane
+
+		for (int i = 0; i < numOfThreads; i++)
+		{
+			int aU = iterationPixelsNums[i];
+			int bU = iterationPixelsNums[i + 1];
+
+			std::cout <<"U: " << aU << "  " << bU << " \n";
+			std::thread thread_obj(&RayTracer::RenderChunkInThread, &renderer, trianglesToCheck, aU, bU,threadID);
+			RenderThreads.push_back(move(thread_obj));
+			threadID++;
+			
+			std::cout << threadID ;
+			std::cout << "    \n\n";
+		}
+
+		for (thread& Thr : RenderThreads)
+		{
+			Thr.join();
+		}
 	}
 };
 

@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <fstream>
+#include <thread>
 
 struct vec3d
 {
@@ -400,8 +401,8 @@ public:
 	int imageHeight;
 	camera cam;
 
-	float viewportHeight = 0.005f;
-	float viewportWidth  = 0.005f; 
+	float viewportHeight = 0.025f;
+	float viewportWidth  = 0.025f; 
 
 	vec3d viewportU = { viewportWidth,0.0,0.0 };
 	vec3d viewportV = { 0.0,viewportHeight,0.0 };
@@ -416,10 +417,10 @@ public:
 
 	int antyAlisingSamples = 5;
 
+	std::vector<std::vector<vec3d>> ThreadsResults;
+
 	void RenderToFile(std::string fileName, std::vector<triangle> trianglesToCheck)
 	{
-		std::ofstream renderResultFile(fileName, std::ios::binary);
-		renderResultFile << "P3\n" << imageWidth << " " << imageHeight << "\n255\n";
 
 		for (int j = -imageHeight*0.5; j < imageHeight*0.5; j++)
 		{
@@ -478,13 +479,72 @@ public:
 				
 				pixelCol = combinedColors / colorsToBlend.size();
 
-				writeColor(renderResultFile, pixelCol);		
+					
 				colorsToBlend.empty();
 			}
 		}
+		
+	}
 
-		renderResultFile.close();
+	void RenderChunkInThread(std::vector<triangle> trianglesToCheck,int startPixelU,int endPixelU,int threadId)
+	{
+		std::vector<vec3d> resultColors;
 
+		for (int j = startPixelU; j < endPixelU; j++)
+		{
+			for (int i = -imageWidth * 0.5; i < imageWidth * 0.5; i++)
+			{
+				vec3d pixelCol{ 0.0,0.0,0.0 };
+				vec3d nextPixel = pixel00 + (pixelDeltaU * i) + (pixelDeltaV * j);
+				vec3d rayDir = (nextPixel - cam.position);
+				ray r(cam.position, rayDir);
+
+				std::vector<vec3d> colorsToBlend;
+
+				for (int sample = 0; sample < antyAlisingSamples; sample++)
+				{
+					vec3d random = addRandomness();
+					rayDir = (nextPixel - cam.position) + random;
+					r.dir = rayDir;
+
+					// Zrobiæ vector kolorów. i ka¿dy trafia po 1 razie. Ale bez sensu, bo np tam gdzie jest pe³ny obszar "trafieñ" to i tak mi bêdzie
+					// dodawaæ kolor t³a, 
+					// Ok zrobiæ vector. dla ka¿dego raya dodajemy kolor który trafi, ale dla raya, nie dla trójk¹ta. 					
+					for (triangle& triToTest : trianglesToCheck)
+					{
+						if (rayHitTriangle(triToTest, r))
+						{
+							vec3d hitColor = { 1.0,1.0,1.0 };
+							colorsToBlend.push_back(hitColor);
+							break;
+						}
+					}
+				}
+				//Sprawdzam w wektorze kolorów ile by³o trafieñ i ró¿nicê uzupe³niam kolorem t³a 
+				// ( im mniej trafieñ tym pi*oko minejsz¹ czêœæ zajmuje trójk¹t w pikselu )
+				int trianglesHits = colorsToBlend.size();
+				//std::cout << trianglesHits << "\n";
+				// Uzupe³niam ró¿nicê kolorem t³a
+				r.dir = (nextPixel - cam.position);
+				vec3d backgroundColor = computeRayColor(r);
+
+				// B³¹d jest na pewno tu ?
+				for (int missedRays = 0; missedRays < antyAlisingSamples - trianglesHits; missedRays++)
+				{
+					colorsToBlend.push_back(backgroundColor);
+				}
+
+				vec3d combinedColors{ 0.0,0.0,0.0 };
+				for (vec3d& colorToAdd : colorsToBlend)
+				{
+					combinedColors += colorToAdd;
+				}
+
+				pixelCol = combinedColors / colorsToBlend.size();
+				resultColors.push_back(pixelCol);
+			}
+		}
+		ThreadsResults[threadId] = resultColors;
 	}
 
 	void writeColor(std::ostream& out, vec3d pixelColor)
@@ -492,6 +552,21 @@ public:
 		out << static_cast<int>(255.999 * pixelColor.x) << " "
 			<< static_cast<int>(255.999 * pixelColor.y) << " "
 			<< static_cast<int>(255.999 * pixelColor.z) << "\n";
+	}
+
+	void SaveRenderResultToFile(std::string fileName)
+	{
+		std::ofstream renderResultFile(fileName, std::ios::binary);
+		renderResultFile << "P3\n" << imageWidth << " " << imageHeight << "\n255\n";
+
+		for (std::vector<vec3d>& threadResult : ThreadsResults)
+		{
+			for (vec3d& pixelCol : threadResult)
+			{
+				writeColor(renderResultFile, pixelCol);
+			}
+		}
+		renderResultFile.close();
 	}
 
 	float clamp(float val, float min, float max)
