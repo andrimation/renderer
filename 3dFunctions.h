@@ -4,6 +4,17 @@
 #include <fstream>
 #include <thread>
 
+
+inline float random()
+{
+	return rand() / (RAND_MAX + 0.1);
+}
+
+inline float random(float min, float max)
+{
+	return min + (max - min) * random();
+}
+
 struct vec3d
 {
 	float x, y, z, w;
@@ -46,6 +57,23 @@ struct vec3d
 		this->z += vOther;
 		return *this;
 	}
+
+	vec3d operator -= (const vec3d& vOther)
+	{
+		this->x -= vOther.x;
+		this->y -= vOther.y;
+		this->z -= vOther.z;
+		return *this;
+	}
+
+	vec3d operator -= (const float& vOther)
+	{
+		this->x -= vOther;
+		this->y -= vOther;
+		this->z -= vOther;
+		return *this;
+	}
+	
 
 	vec3d operator - ()
 	{
@@ -148,11 +176,17 @@ struct vec3d
 		return newVector;
 	}
 
-	static vec3d random()
+	static vec3d createRandomVector()
 	{
-
+		vec3d newVector{ random(), random(), random() };
+		return newVector;
 	};
 
+	static vec3d createRandomVector(float min, float max)
+	{
+		vec3d newVector{ random(min,max), random(min,max), random(min,max) };
+		return newVector;
+	};
 };
 
 struct triangle
@@ -319,16 +353,6 @@ inline static std::ostream& operator << (std::ostream& out, const vec3d v)
 	return out << v.x << " " << v.y << " " << v.z << "\n";
 }
 
-inline float random()
-{
-	return rand() / (RAND_MAX + 0.1);
-}
-
-inline float random(float min, float max)
-{
-	return min + (max - min) * random();
-}
-
 // Funkcja powi¹zana z console engine
 CHAR_INFO GetColour(float lum)
 {
@@ -375,12 +399,15 @@ public:
 
 	vec3d orig;
 	vec3d dir;
+	vec3d initialOrig;
+	vec3d initialDir;
+	triangle* hitTriangle;
+	float hitDistance;
 
 	vec3d at(float t) const 
 	{ 
 		return  (dir * t) + orig; 
 	}
-	
 };
 
 class camera
@@ -388,7 +415,6 @@ class camera
 public:
 	float focalLength = 1.0;
 	vec3d position = { 0.0f,0.0f,0.0f,0.0f };
-
 };
 
 class RayTracer
@@ -401,8 +427,8 @@ public:
 	int imageHeight;
 	camera cam;
 
-	float viewportHeight = 0.025f;
-	float viewportWidth  = 0.025f; 
+	float viewportHeight = 0.0019f;
+	float viewportWidth  = 0.0019f; 
 
 	vec3d viewportU = { viewportWidth,0.0,0.0 };
 	vec3d viewportV = { 0.0,viewportHeight,0.0 };
@@ -415,7 +441,7 @@ public:
 	vec3d viewportTopLeft = cam.position + focalLenght - (viewportU / 2) - (viewportV / 2);
 	vec3d pixel00 = viewportTopLeft + pixelDeltaU / 2 + pixelDeltaV / 2;
 
-	int antyAlisingSamples = 5;
+	int antyAliasingSamples = 1;
 
 	std::vector<std::vector<vec3d>> ThreadsResults;
 
@@ -435,7 +461,7 @@ public:
 
 				std::vector<vec3d> colorsToBlend; 
 
-				for (int sample = 0; sample < antyAlisingSamples; sample++)
+				for (int sample = 0; sample < antyAliasingSamples; sample++)
 				{
 					vec3d random = addRandomness();
 					rayDir = (nextPixel - cam.position) + random;
@@ -466,7 +492,7 @@ public:
 				vec3d backgroundColor = computeRayColor(r);
 				
 				// B³¹d jest na pewno tu ?
-				for (int missedRays = 0; missedRays < antyAlisingSamples-trianglesHits; missedRays++)
+				for (int missedRays = 0; missedRays < antyAliasingSamples-trianglesHits; missedRays++)
 				{
 					colorsToBlend.push_back(backgroundColor);
 				}
@@ -478,9 +504,6 @@ public:
 				}
 				
 				pixelCol = combinedColors / colorsToBlend.size();
-
-					
-				colorsToBlend.empty();
 			}
 		}
 		
@@ -501,25 +524,19 @@ public:
 
 				std::vector<vec3d> colorsToBlend;
 
-				for (int sample = 0; sample < antyAlisingSamples; sample++)
+				for (int sample = 0; sample < antyAliasingSamples; sample++)
 				{
 					vec3d random = addRandomness();
 					rayDir = (nextPixel - cam.position) + random;
+					rayDir = vec3d::VectorNormalize(rayDir);
 					r.dir = rayDir;
+					r.initialDir = rayDir;
+					r.initialOrig = r.orig;
 
-					// Do vectora bêdê dodawa³ kolory ka¿dego promienia który trafi³. Dla promieni nie trafionych dodajê po prostu kolor t³a
-					//  
-					// 					
-					for (triangle& triToTest : trianglesToCheck)
-					{
-						if (rayHitTriangle(triToTest, r))
-						{
-							vec3d hitColor = { 1.0,1.0,1.0 };
-							colorsToBlend.push_back(hitColor);
-							break;
-						}
-
-					}
+					int iteration = 0;
+					vec3d pixelToFill{ 1.0,1.0,1.0 };
+					RayTrace(trianglesToCheck, r, iteration, pixelToFill);
+					colorsToBlend.push_back(pixelToFill);
 				}
 				//Sprawdzam w wektorze kolorów ile by³o trafieñ i ró¿nicê uzupe³niam kolorem t³a 
 				// ( im mniej trafieñ tym pi*oko minejsz¹ czêœæ zajmuje trójk¹t w pikselu )
@@ -527,10 +544,10 @@ public:
 				//std::cout << trianglesHits << "\n";
 				// Uzupe³niam ró¿nicê kolorem t³a
 				r.dir = (nextPixel - cam.position);
+				r.orig = r.initialOrig;
 				vec3d backgroundColor = computeRayColor(r);
 
-				// B³¹d jest na pewno tu ?
-				for (int missedRays = 0; missedRays < antyAlisingSamples - trianglesHits; missedRays++)
+				for (int missedRays = 0; missedRays < antyAliasingSamples - trianglesHits; missedRays++)
 				{
 					colorsToBlend.push_back(backgroundColor);
 				}
@@ -586,10 +603,10 @@ public:
 		}
 	}
 
-	vec3d computeRayColor( ray& r)
+	vec3d computeRayColor( ray& r )
 	{		
 		// Gradient t³a
-		vec3d direction = r.dir;
+		vec3d direction = r.initialDir;
 		vec3d normalized_ray = vec3d::VectorNormalize(direction);
 		auto a = 0.5 * ((normalized_ray.y) + 1.0);
 
@@ -615,28 +632,21 @@ public:
 		// 2) Obliczamy czy proimeñ trafi³ w trójk¹t -> iterujemy przez "wektory-boki" trójk¹ta i liczymy CrossProduct z punktu przeciêcia i aktualnego boku
 		// 3) PóŸniej liczymy dotproduct z uzyskanego w pkt 2) nowego wektora i normala trójk¹ta i jeœli wynik jest >= 0 to ray wpada w trójk¹t
 		
-		ray rr = r;
-
 		vec3d triLine1 = triToTest.points[1] - triToTest.points[0];
 		vec3d triLine2 = triToTest.points[2] - triToTest.points[0];
 
 		vec3d normal = vec3d::VectorCrossProduct(triLine1, triLine2);
+		normal = vec3d::VectorNormalize(normal);
 		triToTest.triangleNormal = normal;
 
 		float NdotRayDirection = vec3d::VectorDotProduct(triToTest.triangleNormal, r.dir);
 
-		if (fabs(NdotRayDirection) < FLT_EPSILON)
+		if (NdotRayDirection >= 0.0)
 		{
 			return false;
 		}
 
-		// Liczenie tego tu to b³¹d, bo trójk¹ty s¹ przesuniête ?
-		/*vec3d triLine1 = triToTest.points[1] - triToTest.points[0];
-		vec3d triLine2 = triToTest.points[2] - triToTest.points[0];
-		vec3d TriNorma = vec3d::VectorCrossProduct(triLine1, triLine2);
-		vec3d TriNormaNormalized = vec3d::VectorNormalize(TriNorma);*/
-
-		vec3d minNorm = triToTest.triangleNormal * - 1;
+		vec3d minNorm = triToTest.triangleNormal * -1;
 
 		float d = vec3d::VectorDotProduct(triToTest.triangleNormal, triToTest.points[0]);
 		float t = -((vec3d::VectorDotProduct(triToTest.triangleNormal, r.orig) - d) / NdotRayDirection);
@@ -646,7 +656,7 @@ public:
 			return false;
 		}
 
-		vec3d P = r.orig + (r.dir*t);
+		vec3d P = r.orig + (r.dir * t);
 
 		vec3d edge1 = triToTest.points[1] - triToTest.points[0];
 		vec3d interscectionVec1 = P - triToTest.points[0];
@@ -678,10 +688,92 @@ public:
 			return false;
 		}
 
-		return true;
+		r.orig = P;
+		return true; 
 	}
 
-	vec3d smoothPixel(int i, int j, vec3d) {};
+	void RayTrace(std::vector<triangle>& trianglesToCheck, ray& r, int& iteration, vec3d& outColor)
+	{
+		if (iteration < 6)
+		{	
+			
+			std::vector<ray> hitPoints;
+			for (triangle& triToCheck : trianglesToCheck)
+			{
+				// W tym miejscu, muszê zebraæ wszystkie trafienia promienia do vectora, a nastêpnie wybraæ trafienie o najmniejszej wartoœci Z
+				// i dopiero to trafienie odbiæ !! bo to s¹ wszystkie trójk¹ty w jednym pikselu !!
+				if (rayHitTriangle(triToCheck, r))
+				{
+					ray rayWithHit = r;
+					rayWithHit.dir = r.dir;
+					rayWithHit.initialDir = r.initialDir;
+					rayWithHit.initialOrig = r.initialOrig;
+					rayWithHit.hitTriangle = &triToCheck;
+					vec3d triangleCamVec = rayWithHit.orig - cam.position;
+					rayWithHit.hitDistance = vec3d::VectorLenght(triangleCamVec);
+					hitPoints.push_back(rayWithHit);
+				}			
+			}
 
+			if (hitPoints.size() > 0)
+			{
+				std::sort(hitPoints.begin(), hitPoints.end(), [&](ray a, ray b) {
+					return a.hitDistance < b.hitDistance;
+					});
+
+				ray& rayHitClosestTriangle = hitPoints[0];
+				triangle& triToCheck = *rayHitClosestTriangle.hitTriangle;
+				int counter = 0;
+				bool randomVectorMatches = false;
+
+				while (!randomVectorMatches)
+				{
+					vec3d triLine1 = triToCheck.points[1] - triToCheck.points[0];
+					vec3d triLine2 = triToCheck.points[2] - triToCheck.points[0];
+					vec3d normal = vec3d::VectorCrossProduct(triLine1, triLine2);
+					if (vec3d::VectorLenght(normal) > 0)
+					{
+						normal = vec3d::VectorNormalize(normal);
+					}
+						
+					vec3d randomVector = vec3d::createRandomVector(-1.0, 1.0);
+					float randomNormalDot = vec3d::VectorDotProduct(normal, randomVector);
+						
+					if (randomNormalDot > 0.0)
+					{
+						r.dir = randomVector;
+						randomVectorMatches = true;					
+					}
+						
+					counter++;
+						
+					if (counter == 50)
+					{
+						goto end;
+					}					
+				}
+				iteration++;
+				outColor -= 0.35;
+				RayTrace(trianglesToCheck, r, iteration, outColor);
+			}
+			else
+			end:
+			{
+				if (iteration == 0)
+				{
+					//outColor += computeRayColor(r);
+				}
+				else
+				{
+					//outColor -= computeRayColor(r)/4;
+					outColor = outColor / iteration;
+				}
+
+
+
+			}
+		}
+		
+	}
 };
 

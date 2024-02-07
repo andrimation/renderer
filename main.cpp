@@ -10,7 +10,7 @@ class consoleEngine : public olcConsoleGameEngine
 public:
 // Data
 
-	std::vector<string> meshesToLoad = { "plane.obj","VideoShip2.obj" };
+	std::vector<string> meshesToLoad = { "VideoShip2.obj" };
 	std::vector<mesh> sceneMeshes;
 	mat4x4 projectionMatrix;
 	camera camView;
@@ -24,7 +24,7 @@ public:
 
 	RayTracer renderer{ camView };
 
-	int numOfThreads = 8;  // 4 albo 16 :P
+	int numOfThreads = 32;  // 4 albo 16 :P
 	std::vector<thread> RenderThreads;
 	
 	
@@ -38,8 +38,8 @@ public:
 	{
 		LoadMeshes(meshesToLoad, sceneMeshes);	
 		createProjectionMatrix(projectionMatrix,ScreenHeight(),ScreenWidth());
-		renderer.imageWidth = (int)ScreenWidth();
-		renderer.imageHeight = (int)ScreenHeight();
+		renderer.imageWidth = (int)ScreenWidth()*8;
+		renderer.imageHeight = (int)ScreenHeight()*8;
 		return true;
 	}
 
@@ -89,7 +89,7 @@ public:
 			{
 				triangle TriRotZ,TriRotX,TriRotY,TriOffset,TriProj;
 
-				if (i == 1)
+				if (i == 0)
 				{
 					//MultiplyMatrixTriangle(matZRot, tri, TriRotZ);
 					//MultiplyMatrixTriangle(matXRot, tri, TriRotX);
@@ -142,26 +142,9 @@ public:
 				TriProj.points[1].y *= (float)ScreenHeight() * 0.5f;
 				TriProj.points[2].x *= (float)ScreenWidth() * 0.5f;
 				TriProj.points[2].y *= (float)ScreenHeight() * 0.5f;
-
 			
 				// Ok czyli wiem ¿e problem jest gdzieœ tu. Jeœli dajê do renderowania TriOffset - a wiêc bez matrycy projekcji,
 				// to wtedy renderuje siê poprawnie
-				
-				triangle Xtri = TriOffset;
-
-				Xtri.points[0].x += 1.0f;
-				Xtri.points[0].y += 1.0f;
-				Xtri.points[1].x += 1.0f;
-				Xtri.points[1].y += 1.0f;
-				Xtri.points[2].x += 1.0f;
-				Xtri.points[2].y += 1.0f;
-
-				Xtri.points[0].x *= (float)ScreenWidth() * 0.5f;
-				Xtri.points[0].y *= (float)ScreenHeight() * 0.5f;
-				Xtri.points[1].x *= (float)ScreenWidth() * 0.5f;
-				Xtri.points[1].y *= (float)ScreenHeight() * 0.5f;
-				Xtri.points[2].x *= (float)ScreenWidth() * 0.5f;
-				Xtri.points[2].y *= (float)ScreenHeight() * 0.5f;
 
 				TriProj.colorChar = color.Char.UnicodeChar;
 				TriProj.colorAtrr = color.Attributes;
@@ -169,15 +152,15 @@ public:
 
 				TriProj.middlePoint = TriProj.ComputeTriangleMiddle();
 
-				if (i == 1) { TrianglesToRayTrace.push_back(TriOffset); }
+				if (i == 1) {  }
 				
 
 				if (cameraTriangleDotProduct < 0.0f)
 				{
-					if (i == 1)
+					if (i == 0)
 					{
 						TrianglesToSort.push_back(TriProj);
-						
+						TrianglesToRayTrace.push_back(TriOffset);
 					}
 					else
 					{
@@ -234,10 +217,10 @@ public:
 		// Tu jest b³ad w obliczeniu bo bêdê renderowa³ po skosie !
 		ThreadsResults.resize(numOfThreads);
 		int threadID = 0;
-		int threadAddNum = (int)ScreenHeight() / numOfThreads;
+		int threadAddNum = ((int)ScreenHeight()*8) / numOfThreads;
 		std::vector<int> iterationPixelsNums;
 
-		int addNum = -(int)ScreenHeight()/2;
+		int addNum = (- (int)ScreenHeight() * 8) / 2;
 		iterationPixelsNums.push_back(addNum);
 		for (int i = 0; i < numOfThreads; i++)
 		{
@@ -245,8 +228,6 @@ public:
 			iterationPixelsNums.push_back(addNum);
 		}
 
-		// Z³e obliczenia numerów dla w¹tków ! pamiêtaæ ¿e muszê liczyæ od numerów ujemnych po³owy rozmiaru ekranu ! !!
-		// podzieliæ w ogóle sobie thready na poziome i wyjebane
 		for (int i = 0; i < numOfThreads; i++)
 		{
 			int aU = iterationPixelsNums[i];
@@ -273,7 +254,7 @@ int main()
 
 	consoleEngine engineObj;
 
-	if (engineObj.ConstructConsole(256, 256, 4, 4))
+	if (engineObj.ConstructConsole(128, 128, 4, 4))
 	{
 		engineObj.Start();
 
