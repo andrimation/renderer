@@ -427,8 +427,8 @@ public:
 	int imageHeight;
 	camera cam;
 
-	float viewportHeight = 0.0019f;
-	float viewportWidth  = 0.0019f; 
+	float viewportHeight = 0.00165f;
+	float viewportWidth  = 0.00165f; 
 
 	vec3d viewportU = { viewportWidth,0.0,0.0 };
 	vec3d viewportV = { 0.0,viewportHeight,0.0 };
@@ -441,7 +441,7 @@ public:
 	vec3d viewportTopLeft = cam.position + focalLenght - (viewportU / 2) - (viewportV / 2);
 	vec3d pixel00 = viewportTopLeft + pixelDeltaU / 2 + pixelDeltaV / 2;
 
-	int antyAliasingSamples = 1;
+	int antyAliasingSamples = 5;
 
 	std::vector<std::vector<vec3d>> ThreadsResults;
 
@@ -619,8 +619,8 @@ public:
 
 	vec3d addRandomness()
 	{
-		float x = - 0.5 + random();
-		float y = - 0.5 + random();
+		float x =  0.5 + random();
+		float y =  0.5 + random();
 
 		return (pixelDeltaU * x) + (pixelDeltaV * y);
 	}
